@@ -64,6 +64,10 @@ Route::prefix('admin')->middleware(['auth', \App\Http\Middleware\EnsureUserIsAdm
     Route::get('/bookings', [AdminBookingController::class, 'index'])->name('admin.bookings.index');
     Route::post('/bookings/{booking}/reject', [AdminBookingController::class, 'reject'])->name('admin.bookings.reject');
     Route::get('/venues', [AdminVenueController::class, 'index'])->name('admin.venues.index');
+    Route::post('/venues', [AdminVenueController::class, 'store'])->name('admin.venues.store');
+    Route::delete('/venues/{venue}', [AdminVenueController::class, 'destroy'])->name('admin.venues.destroy');
+    Route::post('/venues/{venue}/unavailable', [AdminVenueController::class, 'addUnavailable'])->name('admin.venues.unavailable.store');
+    Route::delete('/venues/{venue}/unavailable/{unavailable}', [AdminVenueController::class, 'removeUnavailable'])->name('admin.venues.unavailable.destroy');
 });
 
 
