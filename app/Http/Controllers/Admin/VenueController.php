@@ -8,7 +8,7 @@ use App\Models\Venue;
 use App\Models\UnavailableDate;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Support\Facades\Storage; // Add this import
 use Illuminate\Validation\Rule;
 
 class VenueController extends Controller
@@ -26,9 +26,16 @@ class VenueController extends Controller
             'location' => 'nullable|string|max:255',
             'capacity' => 'nullable|integer|min:0',
             'is_available' => ['nullable', Rule::in([0,1])],
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
         $data['is_available'] = $request->filled('is_available') ? (bool) $request->is_available : true;
+
+        // Handle optional image upload - ADD THIS HERE
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('venues', 'public');
+            $data['image'] = $imagePath;
+        }
 
         $venue = Venue::create($data);
 
@@ -40,6 +47,11 @@ class VenueController extends Controller
         // Prevent deletion if there are existing bookings
         if ($venue->bookings()->exists()) {
             return Redirect::route('admin.venues.index')->withErrors('Cannot delete venue with existing bookings.');
+        }
+
+        // Delete image if exists - ADD THIS
+        if ($venue->image) {
+            Storage::disk('public')->delete($venue->image);
         }
 
         // delete unavailable dates first

@@ -21,7 +21,6 @@ return new class extends Migration
         $table->string('purpose')->nullable();
 
         $table->timestamps();
-        $table->unique(['venue_id', 'booking_date']);
     });
     }
 

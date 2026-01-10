@@ -9,20 +9,19 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
-    {
-        Schema::table('bookings', function (Blueprint $table) {
-            $table->unique(['venue_id', 'booking_date']);
-        });
-    }
+   public function up(): void
+{
+    DB::statement("
+        CREATE UNIQUE INDEX bookings_venue_id_booking_date_unique
+        ON bookings (venue_id, booking_date)
+    ");
+}
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::table('bookings', function (Blueprint $table) {
-            $table->dropUnique(['venue_id', 'booking_date']);
-        });
-    }
+public function down(): void
+{
+    DB::statement("
+        DROP INDEX bookings_venue_id_booking_date_unique
+        ON bookings
+    ");
+}
 };

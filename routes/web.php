@@ -5,7 +5,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\VenueController;
 use App\Http\Controllers\BookingController;
 
-
 Route::get('/', function () {
     return view('welcome');
 });
@@ -18,15 +17,37 @@ Route::post('/venues/{venue}/book', [BookingController::class, 'store'])
     ->middleware('auth')
     ->name('venues.book.store');
 
-
 Route::get('/dashboard', function () {
-    return view('dashboard');
+    $user = Auth::user();
+    
+    // User's statistics
+    $myBookings = \App\Models\Booking::where('user_id', $user->id)->count();
+    
+    $myActiveBookings = \App\Models\Booking::where('user_id', $user->id)
+        ->whereDate('booking_date', '>=', \Carbon\Carbon::today())
+        ->where(function ($q) {
+            $q->whereNull('status')
+              ->orWhereNotIn('status', ['rejected', 'cancelled']);
+        })
+        ->count();
+    
+    $availableVenues = \App\Models\Venue::where('is_available', true)->count();
+    
+    return view('dashboard', compact(
+        'myBookings',
+        'myActiveBookings',
+        'availableVenues'
+    ));
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+// About Us Route
+Route::get('/about', function () {
+    return view('about');
+})->middleware(['auth'])->name('about');
 
 Route::get('/AvailableVenues', [VenueController::class, 'index'])
     ->middleware(['auth'])
     ->name('AvailableVenues.index');
-
 
 Route::get('/SearchVenues', [VenueController::class, 'search'])
     ->middleware(['auth'])
@@ -70,7 +91,5 @@ Route::prefix('admin')->middleware(['auth', \App\Http\Middleware\EnsureUserIsAdm
     Route::delete('/venues/{venue}/unavailable/{unavailable}', [AdminVenueController::class, 'removeUnavailable'])->name('admin.venues.unavailable.destroy');
 });
 
-
-
-
 require __DIR__.'/auth.php';
+

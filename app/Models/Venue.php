@@ -13,6 +13,7 @@ class Venue extends Model
         'location',
         'capacity',
         'is_available',
+        'image',
     ];
 
     public function bookings()
