@@ -1,3 +1,6 @@
+@section('title', 'Search Venues - KictVeBook')
+
+
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">

@@ -1,3 +1,5 @@
+@section('title', 'Browse Available Venues - KictVeBook')
+
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
@@ -18,20 +20,29 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     @foreach ($venues as $venue)
                         <div class="bg-white rounded-lg shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden border border-gray-200 group">
-                            <!-- Venue Header with Icon -->
-                            <div class="h-32 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center relative overflow-hidden">
-                                <!-- Background Pattern -->
-                                <div class="absolute inset-0 opacity-10">
-                                    <div class="absolute inset-0" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.1) 10px, rgba(255,255,255,.1) 20px);"></div>
-                                </div>
-                                <!-- Icon -->
-                                <div class="relative">
-                                    <svg class="w-16 h-16 text-white opacity-90 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                    </svg>
-                                </div>
-                            </div>
-
+                            <!-- Venue Image or Default -->
+@if($venue->image)
+    <div class="h-48 overflow-hidden bg-gray-100">
+        <img src="{{ asset('storage/' . $venue->image) }}" 
+             alt="{{ $venue->name }}" 
+             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+             onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'h-48 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center relative overflow-hidden\'><div class=\'absolute inset-0 opacity-10\'><div class=\'absolute inset-0\' style=\'background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.1) 10px, rgba(255,255,255,.1) 20px);\'></div></div><div class=\'relative\'><svg class=\'w-16 h-16 text-white opacity-90 group-hover:scale-110 transition-transform\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4\'></path></svg></div></div>';">
+    </div>
+@else
+    <!-- Venue Header with Icon (Default) -->
+    <div class="h-48 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center relative overflow-hidden">
+        <!-- Background Pattern -->
+        <div class="absolute inset-0 opacity-10">
+            <div class="absolute inset-0" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.1) 10px, rgba(255,255,255,.1) 20px);"></div>
+        </div>
+        <!-- Icon -->
+        <div class="relative">
+            <svg class="w-16 h-16 text-white opacity-90 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+        </div>
+    </div>
+@endif
                             <!-- Venue Details -->
                             <div class="p-6">
                                 <h3 class="text-lg font-semibold text-gray-900 mb-4 group-hover:text-indigo-600 transition-colors">

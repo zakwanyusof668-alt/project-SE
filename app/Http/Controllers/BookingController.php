@@ -14,96 +14,178 @@ use App\Models\UnavailableDate;
 class BookingController extends Controller
 {
     public function index()
-{
-    $userId = auth()->id();
+    {
+        $userId = auth()->id();
 
-    $upcomingBookings = Booking::with('venue')
-        ->where('user_id', $userId)
-        ->whereDate('booking_date', '>=', Carbon::today())
-        ->orderBy('booking_date')
-        ->get();
+        $upcomingBookings = Booking::with('venue')
+            ->where('user_id', $userId)
+            ->whereDate('booking_date', '>=', Carbon::today())
+            ->orderBy('booking_date')
+            ->get();
 
-    $pastBookings = Booking::with('venue')
-        ->where('user_id', $userId)
-        ->whereDate('booking_date', '<', Carbon::today())
-        ->orderByDesc('booking_date')
-        ->get();
+        $pastBookings = Booking::with('venue')
+            ->where('user_id', $userId)
+            ->whereDate('booking_date', '<', Carbon::today())
+            ->orderByDesc('booking_date')
+            ->get();
 
-    return view('bookings.index', compact('upcomingBookings', 'pastBookings'));
-}
+        return view('bookings.index', compact('upcomingBookings', 'pastBookings'));
+    }
+
     public function create(Venue $venue)
     {
         $unavailableDates = $venue->unavailableDates
-        ->pluck('date')
-        ->toArray();
+            ->pluck('date')
+            ->toArray();
 
-    return view('bookings.create', compact('venue', 'unavailableDates'));
+        return view('bookings.create', compact('venue', 'unavailableDates'));
+    }
+
+    public function review(Request $request, Venue $venue)
+    {
+        // Validate all input fields
+        $validated = $request->validate([
+            'booking_date' => 'required|date|after_or_equal:today',
+            'booksession' => 'required|in:morning,evening,all_day',
+            'purpose' => 'required|string|max:500',
+            'name' => 'required|string|max:255',
+            'matric_no' => 'required|string|max:100',
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:50',
+        ]);
+
+        // Check if date is unavailable
+        $isUnavailable = UnavailableDate::where('venue_id', $venue->id)
+            ->where('date', $validated['booking_date'])
+            ->exists();
+
+        if ($isUnavailable) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'booking_date' => 'This venue is not available on the selected date.',
+                ]);
+        }
+
+        // Check for duplicate bookings with session conflict logic
+        $existingBooking = Booking::where('venue_id', $venue->id)
+            ->where('booking_date', $validated['booking_date'])
+            ->whereNotIn('status', ['rejected', 'cancelled']) // Ignore rejected/cancelled
+            ->where(function ($query) use ($validated) {
+                // If trying to book all_day, conflict with any session
+                if ($validated['booksession'] === 'all_day') {
+                    $query->whereIn('booksession', ['morning', 'evening', 'all_day']);
+                } 
+                // If trying to book morning/evening, conflict with same session or all_day
+                else {
+                    $query->where(function ($q) use ($validated) {
+                        $q->where('booksession', $validated['booksession'])
+                          ->orWhere('booksession', 'all_day');
+                    });
+                }
+            })
+            ->exists();
+
+        if ($existingBooking) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'booking_date' => 'This venue is already booked for the selected date and session. Please choose a different date or session.',
+                ]);
+        }
+
+        // Calculate price based on session
+        $price = match($validated['booksession']) {
+            'morning' => 'RM 50.00',
+            'evening' => 'RM 50.00',
+            'all_day' => 'RM 80.00',
+            default => 'Free',
+        };
+
+        // Show review/confirmation page
+        return view('bookings.review', [
+            'venue' => $venue,
+            'booking_date' => $validated['booking_date'],
+            'booksession' => $validated['booksession'],
+            'purpose' => $validated['purpose'],
+            'name' => $validated['name'],
+            'matric_no' => $validated['matric_no'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'],
+            'price' => $price,
+            'user' => auth()->user(),
+        ]);
     }
 
     public function store(Request $request, Venue $venue)
     {
-        $request->validate([
-        'booking_date' => [
-            'required',
-            'date',
-            'after_or_equal:today',
-        ],
-        'booksession' => 'required|in:morning,evening,all_day',
-        'purpose' => 'nullable|string|max:500',
-    ]);
+        // Validate all fields
+        $validated = $request->validate([
+            'booking_date' => 'required|date|after_or_equal:today',
+            'booksession' => 'required|in:morning,evening,all_day',
+            'purpose' => 'required|string|max:500',
+            'name' => 'required|string|max:255',
+            'matric_no' => 'required|string|max:100',
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:50',
+        ]);
 
-    // Check if date is unavailable
-    $isUnavailable = UnavailableDate::where('venue_id', $venue->id)
-        ->where('date', $request->booking_date)
-        ->exists();
+        // Check if date is unavailable
+        $isUnavailable = UnavailableDate::where('venue_id', $venue->id)
+            ->where('date', $validated['booking_date'])
+            ->exists();
 
-    if ($isUnavailable) {
-        return back()
-            ->withInput()
-            ->withErrors([
-                'booking_date' => 'This venue is not available on the selected date.',
-            ]);
-    }
+        if ($isUnavailable) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'booking_date' => 'This venue is not available on the selected date.',
+                ]);
+        }
 
-    // Comprehensive session conflict check
-    $existingBooking = Booking::where('venue_id', $venue->id)
-        ->where('booking_date', $request->booking_date)
-        // ignore bookings that were rejected by admin so cancelled slots become available
-        ->where(function ($q) {
-            $q->whereNull('status')->orWhere('status', '<>', 'rejected');
-        })
-        ->where(function ($query) use ($request) {
-            // If booking all_day, conflict with any session
-            if ($request->booksession === 'all_day') {
-                $query->whereIn('booksession', ['morning', 'evening', 'all_day']);
-            } 
-            // If booking morning/evening, conflict with same session or all_day
-            else {
-                $query->where('booksession', $request->booksession)
-                      ->orWhere('booksession', 'all_day');
-            }
-        })
-        ->exists();
+        // FINAL CHECK: Prevent duplicate bookings with session conflict logic
+        $existingBooking = Booking::where('venue_id', $venue->id)
+            ->where('booking_date', $validated['booking_date'])
+            ->whereNotIn('status', ['rejected', 'cancelled']) // Ignore rejected/cancelled
+            ->where(function ($query) use ($validated) {
+                // If trying to book all_day, conflict with any session
+                if ($validated['booksession'] === 'all_day') {
+                    $query->whereIn('booksession', ['morning', 'evening', 'all_day']);
+                } 
+                // If trying to book morning/evening, conflict with same session or all_day
+                else {
+                    $query->where(function ($q) use ($validated) {
+                        $q->where('booksession', $validated['booksession'])
+                          ->orWhere('booksession', 'all_day');
+                    });
+                }
+            })
+            ->exists();
 
-    if ($existingBooking) {
-        return back()
-            ->withInput()
-            ->withErrors([
-                'booksession' => 'This venue is already booked for the selected date and session.',
-            ]);
-    }
+        if ($existingBooking) {
+            return redirect()->route('dashboard')
+                ->withErrors([
+                    'booking' => 'Sorry, this venue was just booked by someone else. Please try a different date or session.',
+                ]);
+        }
 
-    Booking::create([
-        'user_id' => auth()->id(),
-        'venue_id' => $venue->id,
-        'booking_date' => $request->booking_date,
-        'booksession' => $request->booksession, // ✅ Fixed column name
-        'purpose' => $request->purpose,
-    ]);
+        // Create the booking
+        Booking::create([
+            'user_id' => auth()->id(),
+            'venue_id' => $venue->id,
+            'booking_date' => $validated['booking_date'],
+            'booksession' => $validated['booksession'],
+            'purpose' => $validated['purpose'],
+            'name' => $validated['name'],
+            'matric_no' => $validated['matric_no'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'],
+            'status' => null, // or 'pending' if you use that
+        ]);
 
-    return redirect()
-        ->route('SearchVenues.Sindex')
-        ->with('success', 'Venue booked successfully!');
+        return redirect()
+            ->route('bookings.index')
+            ->with('success', 'Venue booked successfully! Your booking is confirmed.');
     }
 
     public function destroy(Booking $booking)
@@ -117,80 +199,6 @@ class BookingController extends Controller
 
         return redirect()
             ->route('bookings.index')
-            ->with('success', 'Booking canceled successfully.');
+            ->with('success', 'Booking cancelled successfully.');
     }
-
-    public function review(Request $request, Venue $venue)
-{
-
-   logger('Step 1: Entered review method');
-   logger('Today is: ' . now()->toDateString());
-    logger('Booking date is: ' . $request->booking_date);
-    logger('Request data:', $request->all());
-    
-     $request->validate([
-        'booking_date' => 'required|date|after_or_equal:today',
-        'booksession' => 'required|in:morning,evening,all_day',
-        'purpose' => 'nullable|string|max:500',
-        'name' => 'required|string|max:255',
-        'matric_no' => 'required|string|max:100',
-        'email' => 'required|email|max:255',
-        'phone' => 'required|string|max:50',
-    ]);
-    logger('Step 2: Validation passed');
-
-    // Check unavailable dates
-    $isUnavailable = UnavailableDate::where('venue_id', $venue->id)
-        ->where('date', $request->booking_date)
-        ->exists();
-logger('Step 3: Checked unavailable dates', ['isUnavailable' => $isUnavailable]);
-
-    if ($isUnavailable) {
-        return back()
-            ->withInput()
-            ->withErrors([
-                'booking_date' => 'This venue is not available on the selected date.',
-            ]);
-    }
-
-    // Check existing bookings with session
-    $existingBooking = Booking::where('venue_id', $venue->id)
-        ->where('booking_date', $request->booking_date)
-        // ignore admin-rejected bookings when checking conflicts
-        ->where(function ($q) {
-            $q->whereNull('status')->orWhere('status', '<>', 'rejected');
-        })
-        ->where(function ($query) use ($request) {
-            if ($request->booksession === 'all_day') {
-                $query->whereIn('booksession', ['morning', 'evening', 'all_day']);
-            } else {
-                $query->where('booksession', $request->booksession)
-                      ->orWhere('booksession', 'all_day');
-            }
-        })
-        ->exists();
-logger('Step 5: Checked existing bookings', ['existingBooking' => $existingBooking]);
-    if ($existingBooking) {
-         logger('Step 6: Booking exists - returning back');
-        return back()
-            ->withInput()
-            ->withErrors([
-                'booksession' => 'This venue is already booked for the selected date and session.',
-            ]);
-    }
- logger('Step 7: All checks passed - showing review view');
-    return view('bookings.review', [
-        'venue' => $venue,
-        'booking_date' => $request->booking_date,
-        'booksession' => $request->booksession,
-        'purpose' => $request->purpose,
-        'name' => $request->name,
-        'matric_no' => $request->matric_no,
-        'email' => $request->email,
-        'phone' => $request->phone,
-        'price' => 'Free',
-        'user' => auth()->user(),
-    ]);
-
-}
 }

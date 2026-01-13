@@ -26,10 +26,10 @@
             <!-- Logo Section -->
             <div class="mb-6">
                 <a href="/" class="flex flex-col items-center">
-                    <!-- KICT Logo Badge -->
-                    <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg mb-3 hover:scale-105 transition-transform">
-                        <span class="text-white font-bold text-3xl">K</span>
-                    </div>
+                   <!-- Logo -->
+            <div class="w-20 h-20 bg-white dark:bg-white rounded-2xl shadow-lg flex items-center justify-center p-0">
+    <img src="{{ asset('images/logo.png') }}" alt="KICT Logo" class="w-full h-full object-contain">
+</div>
                     <!-- Text -->
                     <div class="text-center">
                         <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">KICT Venue Booking</h1>
