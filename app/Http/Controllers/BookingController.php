@@ -17,15 +17,21 @@ class BookingController extends Controller
     {
         $userId = auth()->id();
 
+        // Upcoming bookings: future dates AND not rejected/cancelled
         $upcomingBookings = Booking::with('venue')
             ->where('user_id', $userId)
             ->whereDate('booking_date', '>=', Carbon::today())
+            ->whereNotIn('status', ['rejected', 'cancelled'])
             ->orderBy('booking_date')
             ->get();
 
+        // Past bookings: past dates OR rejected/cancelled
         $pastBookings = Booking::with('venue')
             ->where('user_id', $userId)
-            ->whereDate('booking_date', '<', Carbon::today())
+            ->where(function($query) {
+                $query->whereDate('booking_date', '<', Carbon::today())
+                      ->orWhereIn('status', ['rejected', 'cancelled']);
+            })
             ->orderByDesc('booking_date')
             ->get();
 
@@ -180,7 +186,7 @@ class BookingController extends Controller
             'matric_no' => $validated['matric_no'],
             'email' => $validated['email'],
             'phone' => $validated['phone'],
-            'status' => null, // or 'pending' if you use that
+            'status' => 'pending',
         ]);
 
         return redirect()
@@ -195,7 +201,9 @@ class BookingController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        $booking->delete();
+        // Mark as cancelled instead of deleting
+        $booking->status = 'cancelled';
+        $booking->save();
 
         return redirect()
             ->route('bookings.index')

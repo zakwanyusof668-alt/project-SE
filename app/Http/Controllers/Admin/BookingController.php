@@ -12,16 +12,23 @@ class BookingController extends Controller
 {
     public function index()
     {
-        // Show upcoming bookings only (exclude past/completed and already rejected)
-        $bookings = Booking::with('user','venue')
+        // Upcoming bookings: future dates AND not rejected/cancelled
+        $upcomingBookings = Booking::with('user','venue')
             ->whereDate('booking_date', '>=', Carbon::today())
-            ->where(function ($q) {
-                $q->whereNull('status')->orWhere('status', '!=', 'rejected');
-            })
+            ->whereNotIn('status', ['rejected', 'cancelled'])
             ->orderBy('booking_date')
             ->get();
 
-        return view('admin.bookings.index', compact('bookings'));
+        // Past bookings: past dates OR rejected/cancelled
+        $pastBookings = Booking::with('user','venue')
+            ->where(function($query) {
+                $query->whereDate('booking_date', '<', Carbon::today())
+                      ->orWhereIn('status', ['rejected', 'cancelled']);
+            })
+            ->orderByDesc('booking_date')
+            ->get();
+
+        return view('admin.bookings.index', compact('upcomingBookings', 'pastBookings'));
     }
 
     public function reject(Request $request, Booking $booking)
